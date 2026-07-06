@@ -1,0 +1,455 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+</head>
+<body>
+<title>Smart Money Monitor — Chứng khoán & Ngân hàng</title>
+<style>
+:root{
+  --bg:#0e1420; --panel:#151d2c; --panel2:#1a2436; --line:#26324a;
+  --ink:#e8ecf4; --muted:#8a94a8; --faint:#5a6478;
+  --buy:#2fbf8f; --sell:#e85c6b; --own:#9b7fe8; --amber:#e8b44c;
+  --mono:"Cascadia Mono",Consolas,"SF Mono",Menlo,monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--ink);font:15px/1.55 "Segoe UI",system-ui,-apple-system,sans-serif;padding:28px 20px 60px}
+.wrap{max-width:1180px;margin:0 auto}
+a{color:var(--amber)}
+h1{font-size:26px;font-weight:650;letter-spacing:-.3px;text-wrap:balance}
+.sub{color:var(--muted);margin-top:4px;font-size:13.5px}
+.sub b{color:var(--ink);font-weight:600}
+.eyebrow{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--amber);font-weight:600;margin-bottom:6px}
+section{margin-top:34px}
+h2{font-size:17px;font-weight:650;margin-bottom:4px}
+.h2sub{color:var(--muted);font-size:13px;margin-bottom:14px}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(330px,1fr));gap:14px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:18px 20px}
+.card h3{font-size:14px;font-weight:650;display:flex;align-items:center;gap:8px}
+.card h3 .tag{font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;padding:2px 8px;border-radius:999px;font-weight:600}
+.tag.ck{background:rgba(232,180,76,.14);color:var(--amber)}
+.tag.nh{background:rgba(155,127,232,.16);color:var(--own)}
+.tag.bds{background:rgba(47,191,143,.14);color:var(--buy)}
+.kpis{display:grid;grid-template-columns:repeat(2,1fr);gap:10px 14px;margin-top:14px}
+.kpi .v{font-family:var(--mono);font-size:17px;font-weight:600;font-variant-numeric:tabular-nums}
+.kpi .l{font-size:11px;color:var(--muted);margin-top:2px;line-height:1.35}
+.pos{color:var(--buy)} .neg{color:var(--sell)}
+.card p{font-size:13px;color:var(--muted);margin-top:12px;border-top:1px solid var(--line);padding-top:10px}
+.card p b{color:var(--ink)}
+/* scatter */
+.plotbox{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px}
+canvas{display:block;width:100%;height:auto}
+.legend{display:flex;flex-wrap:wrap;gap:16px;font-size:12.5px;color:var(--muted);padding:8px 6px 2px}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.dot{width:10px;height:10px;border-radius:50%;display:inline-block}
+.tip{position:fixed;pointer-events:none;background:#0b111c;border:1px solid var(--line);border-radius:8px;
+  padding:9px 12px;font-size:12.5px;max-width:280px;display:none;z-index:9;box-shadow:0 6px 24px rgba(0,0,0,.5)}
+.tip .t{font-family:var(--mono);font-weight:700;font-size:13px}
+.tip .n{color:var(--muted);margin-top:3px}
+/* stories */
+.stories{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+@media(max-width:900px){.stories{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:600px){.stories{grid-template-columns:1fr}}
+.story{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--faint);border-radius:8px;padding:12px 14px}
+.story .sym{font-family:var(--mono);font-weight:700;font-size:14px}
+.story .sec{font-size:10.5px;color:var(--faint);letter-spacing:.08em;text-transform:uppercase;margin-left:6px}
+.story p{font-size:12.5px;color:var(--muted);margin-top:5px}
+.story.b-xn{border-left-color:var(--buy)} .story.b-rut{border-left-color:var(--sell)}
+.story.b-so{border-left-color:var(--own)} .story.b-tt{border-left-color:var(--faint)}
+/* tables */
+.tblbox{background:var(--panel);border:1px solid var(--line);border-radius:10px;overflow-x:auto}
+table{border-collapse:collapse;width:100%;min-width:860px;font-size:13px}
+th{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);text-align:right;
+  padding:10px 10px;border-bottom:1px solid var(--line);cursor:pointer;user-select:none;white-space:nowrap;background:var(--panel2)}
+th:first-child{text-align:left;position:sticky;left:0;background:var(--panel2)}
+th:hover{color:var(--ink)}
+th .ar{color:var(--amber)}
+td{padding:7px 10px;text-align:right;font-family:var(--mono);font-variant-numeric:tabular-nums;
+  border-bottom:1px solid #1d2739;white-space:nowrap}
+td:first-child{text-align:left;font-weight:700;position:sticky;left:0;background:var(--panel)}
+tr:hover td{background:var(--panel2)}
+tr:hover td:first-child{background:var(--panel2)}
+.chip{display:inline-block;font:600 10.5px/1 "Segoe UI",sans-serif;letter-spacing:.04em;padding:4px 8px;border-radius:999px}
+.c-xn{background:rgba(47,191,143,.15);color:var(--buy)}
+.c-rut{background:rgba(232,92,107,.15);color:var(--sell)}
+.c-so{background:rgba(155,127,232,.17);color:var(--own)}
+.c-tt{background:rgba(138,148,168,.13);color:var(--muted)}
+.bar{display:inline-block;height:9px;border-radius:2px;vertical-align:middle}
+.note{font-size:12px;color:var(--faint);margin-top:10px;line-height:1.6}
+.note b{color:var(--muted)}
+.toggles{display:flex;gap:8px;margin:0 0 10px}
+.tg{font-size:12px;padding:5px 12px;border-radius:999px;border:1px solid var(--line);background:none;color:var(--muted);cursor:pointer}
+.tg.on{border-color:var(--amber);color:var(--amber)}
+.tg:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+</style>
+
+<div class="wrap">
+  <div class="eyebrow">Fireant · VNDirect · CBTT — dữ liệu tới 03/07/2026</div>
+  <h1>Smart Money Monitor — Chứng khoán · Ngân hàng · Bất động sản</h1>
+  <div class="sub">Dấu chân <b>khối ngoại</b>, <b>tự doanh</b> và <b>nội bộ / nhóm cổ đông lớn</b> trên 108 cổ phiếu tài chính &amp; bất động sản,
+    lũy kế 2026 và 5 phiên bùng nổ gần nhất (29/6–3/7).</div>
+
+  <section>
+    <div class="cards">
+      <div class="card">
+        <h3>Dịch vụ tài chính — Chứng khoán <span class="tag ck">26 mã</span></h3>
+        <div class="kpis">
+          <div class="kpi"><div class="v neg">−1.536 tỷ</div><div class="l">Khối ngoại ròng 2026</div></div>
+          <div class="kpi"><div class="v neg">−79 tỷ</div><div class="l">Khối ngoại 5 phiên</div></div>
+          <div class="kpi"><div class="v neg">−352 tỷ</div><div class="l">Tự doanh ròng 2026</div></div>
+          <div class="kpi"><div class="v">x1,9</div><div class="l">GTGD 5p / nền (trung vị)</div></div>
+        </div>
+        <p><b>Sóng giá lớn, xác nhận mỏng.</b> GTGD bùng nổ nhưng tổ chức chỉ đồng hành chọn lọc (SHS, VND, MBS);
+        nội bộ toàn ngành <b>không có một đăng ký mua nào</b> từ tháng 5.</p>
+      </div>
+      <div class="card">
+        <h3>Ngân hàng <span class="tag nh">24 mã</span></h3>
+        <div class="kpis">
+          <div class="kpi"><div class="v neg">−27.968 tỷ</div><div class="l">Khối ngoại ròng 2026</div></div>
+          <div class="kpi"><div class="v neg">−698 tỷ</div><div class="l">Khối ngoại 5 phiên</div></div>
+          <div class="kpi"><div class="v">±7.300 tỷ</div><div class="l">Tự doanh mua+bán 2026 (sang tay khối)</div></div>
+          <div class="kpi"><div class="v">x1,0</div><div class="l">GTGD 5p / nền (trung vị)</div></div>
+        </div>
+        <p><b>Không sóng volume — sóng sở hữu.</b> Ngoại xả diện rộng, nhưng các nhóm tư nhân nội
+        (Âu Lạc→ACB, Unicap→VIB, sang tay EIB) đang gom quyền chi phối bằng tiền nghìn tỷ.</p>
+      </div>
+      <div class="card">
+        <h3>Bất động sản <span class="tag bds">58 mã</span></h3>
+        <div class="kpis">
+          <div class="kpi"><div class="v neg">−32.496 tỷ</div><div class="l">Khối ngoại ròng 2026</div></div>
+          <div class="kpi"><div class="v neg">−742 tỷ</div><div class="l">Khối ngoại 5 phiên</div></div>
+          <div class="kpi"><div class="v pos">+1.045 tỷ</div><div class="l">Tự doanh ròng 2026 — mua ròng duy nhất</div></div>
+          <div class="kpi"><div class="v">x0,7</div><div class="l">GTGD 5p / nền (trung vị)</div></div>
+        </div>
+        <p><b>Tổ chức tháo chạy, nội bộ nhặt hàng.</b> Ngoại xả nặng nhất 3 ngành (riêng nhóm Vin −25.900 tỷ);
+        không sóng volume trừ cụm KCN quanh KBC. Ngành duy nhất có lãnh đạo <b>đăng ký mua</b> (NLG, NDN, NTL).</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Bản đồ dòng tiền 5 phiên bùng nổ</h2>
+    <div class="h2sub">Trục ngang: khối ngoại mua/bán ròng 5 phiên (% GTGD) · Trục dọc: GTGD 5 phiên so với nền 20 phiên trước (lần) · Kích thước bóng: GTGD bình quân phiên</div>
+    <div class="plotbox">
+      <div class="toggles">
+        <button class="tg on" id="tgCK">● Chứng khoán (viền liền)</button>
+        <button class="tg on" id="tgNH">● Ngân hàng (viền đứt)</button>
+        <button class="tg on" id="tgBDS">● Bất động sản (viền chấm)</button>
+      </div>
+      <canvas id="plot" width="1120" height="560"></canvas>
+      <div class="legend">
+        <span><span class="dot" style="background:var(--buy)"></span>Tổ chức xác nhận</span>
+        <span><span class="dot" style="background:var(--sell)"></span>Tổ chức thoát ra</span>
+        <span><span class="dot" style="background:var(--own)"></span>Sóng sở hữu / thâu tóm</span>
+        <span><span class="dot" style="background:var(--faint)"></span>Không dấu chân tổ chức</span>
+        <span style="margin-left:auto">Di chuột lên từng bóng để xem chi tiết</span>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>12 câu chuyện đáng theo dõi nhất</h2>
+    <div class="h2sub">Tổng hợp từ CBTT, báo cáo cổ đông lớn và dữ liệu giao dịch từng phiên</div>
+    <div class="stories">
+      <div class="story b-xn"><span class="sym">SHS</span><span class="sec">chứng khoán</span>
+        <p>PYN Elite Fund gom cả năm lên ~8% (“né VIX, giảm VCI để mua SHS”). NN +341 tỷ 2026, +26 tỷ tuần qua.</p></div>
+      <div class="story b-xn"><span class="sym">VND</span><span class="sec">chứng khoán</span>
+        <p>Cú đảo chiều mạnh nhất tuần: NN mua +57 tỷ sau khi xả 900 tỷ từ đầu năm. Mã duy nhất tự doanh cũng mua ròng cả năm (+41 tỷ).</p></div>
+      <div class="story b-rut"><span class="sym">TCX</span><span class="sec">chứng khoán</span>
+        <p>Ngoại chốt lời quyết liệt vào sóng: bán 131 tỷ = 32% GTGD 5 phiên, sau khi đã gom 738 tỷ từ đầu năm.</p></div>
+      <div class="story b-so"><span class="sym">ACB</span><span class="sec">ngân hàng</span>
+        <p>Nhóm Âu Lạc (Ngô Thu Thúy + Jenny/Johnny) mua suốt năm, lên 9,59% — áp sát ngưỡng 10% đủ ảnh hưởng nhân sự HĐQT.</p></div>
+      <div class="story b-so"><span class="sym">VIB</span><span class="sec">ngân hàng</span>
+        <p>Nhóm Unicap chi ~500 tỷ mua 31 triệu CP (21/5), cả nhóm nắm 8,4%. Tiền vào mạnh nhưng giá chưa chạy.</p></div>
+      <div class="story b-so"><span class="sym">EIB</span><span class="sec">ngân hàng</span>
+        <p>Tự doanh +962 tỷ 2026, riêng 5 phiên gần nhất +307 tỷ — một đợt sang tay cổ phần đang chạy ngay lúc này.</p></div>
+      <div class="story b-xn"><span class="sym">HDB · VCB</span><span class="sec">ngân hàng</span>
+        <p>Hai cú mua ngoại tập trung nhất tuần bùng nổ: HDB +127 tỷ (6,3% GTGD), VCB +122 tỷ (9,5% GTGD).</p></div>
+      <div class="story b-tt"><span class="sym">BVS · SBS</span><span class="sec">chứng khoán</span>
+        <p>Tăng nóng nhất ngành (GTGD gấp 4,7–5,6 lần nền) nhưng NN/tự doanh/nội bộ ≈ 0 — sóng “chân không”, thuần đầu cơ nội.</p></div>
+      <div class="story b-rut"><span class="sym">VHM ⇄ VIC</span><span class="sec">bất động sản</span>
+        <p>Đổi trụ trong nhóm Vin: NN xả VHM −619 tỷ (−19% GTGD) tuần qua nhưng mua VIC +207 tỷ — cú mua lớn nhất cả 3 ngành.</p></div>
+      <div class="story b-so"><span class="sym">KBC</span><span class="sec">bất động sản</span>
+        <p>VPBank Securities thoái sạch, rời ghế cổ đông lớn (3/7); khối ~837 tỷ sang tay qua kênh tự doanh trong 5 phiên, GTGD gấp 3,3 lần nền — có bên nhận mới.</p></div>
+      <div class="story b-xn"><span class="sym">NLG · NDN · NTL</span><span class="sec">bất động sản</span>
+        <p>Ngành duy nhất nội bộ mua thật: người nhà Chủ tịch Nam Long đăng ký mua 1 triệu CP; Phó TGĐ NDN đã mua 529k; Phó Chủ tịch NTL gom thành cổ đông lớn.</p></div>
+      <div class="story b-rut"><span class="sym">TCH · NVL</span><span class="sec">bất động sản</span>
+        <p>Dragon Capital bán 3,23 triệu CP TCH rời ghế cổ đông lớn (21/6); cổ đông lớn Novaland bán hàng triệu CP khi giá tăng “bốc đầu”.</p></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Chứng khoán — 26 mã</h2>
+    <div class="h2sub">Bấm tiêu đề cột để sắp xếp · NN = khối ngoại mua/bán ròng · TD = tự doanh (nguồn VNDirect)</div>
+    <div class="tblbox"><table id="tbCK"></table></div>
+  </section>
+
+  <section>
+    <h2>Ngân hàng — 24 mã</h2>
+    <div class="h2sub">TD tại nhóm bank phần lớn là giao dịch thỏa thuận khối lượng lớn qua kênh tự doanh — proxy của các thương vụ sang tay cổ phần</div>
+    <div class="tblbox"><table id="tbNH"></table></div>
+  </section>
+
+  <section>
+    <h2>Bất động sản — 58 mã</h2>
+    <div class="h2sub">Ngành bị khối ngoại bán nặng nhất (−32.496 tỷ từ đầu năm) nhưng tự doanh mua ròng và nội bộ bắt đầu đăng ký mua</div>
+    <div class="tblbox"><table id="tbBDS"></table></div>
+  </section>
+
+  <div class="note">
+    <b>Phân nhóm:</b> <span class="chip c-xn">Xác nhận</span> tổ chức mua đồng hành ·
+    <span class="chip c-rut">Thoát ra</span> tổ chức bán trong khi giá tăng ·
+    <span class="chip c-so">Sóng sở hữu</span> nhóm cổ đông lớn gom quyền chi phối ·
+    <span class="chip c-tt">Không dấu chân</span> dòng tiền cá nhân trong nước chiếm gần hết.<br>
+    Nguồn: FireAnt restv2 (khối ngoại, thỏa thuận, CBTT), VNDirect finfo (tự doanh), báo chí tài chính (PYN/Âu Lạc/Unicap/Nutifood).
+    Tự doanh FireAnt và VNDirect lệch nhau ở vài mã HNX (SHS, VIX) — bảng dùng nguồn VNDirect. Dữ liệu tới hết phiên 03/07/2026. Không phải khuyến nghị đầu tư.
+  </div>
+</div>
+<div class="tip" id="tip"></div>
+
+<script>
+const GRP={xn:['Xác nhận','c-xn'],rut:['Thoát ra','c-rut'],so:['Sóng sở hữu','c-so'],tt:['Không dấu chân','c-tt']};
+const COL={xn:'#2fbf8f',rut:'#e85c6b',so:'#9b7fe8',tt:'#5a6478'};
+// s, giá, NN2026, NN5p, NN%GTGD5p, TD2026(VND), GTGD5p(tỷ/phiên), xGTGD, tin NB, nhóm, ghi chú
+const CK=[
+['SHS',19.3,341.4,26.0,1.7,-19.4,305.9,1.12,3,'xn','PYN Elite gom cả năm lên ~8%; chốt lời nhẹ 3tr CP 23/6 rồi lại báo cáo thay đổi sở hữu 2/7'],
+['VND',18.4,-901.5,56.7,4.1,41.2,279.3,0.88,0,'xn','NN đảo chiều +57 tỷ/tuần sau khi xả 900 tỷ; tự doanh mua ròng +41 tỷ cả năm (2 nguồn khớp)'],
+['MBS',21.5,-430.9,9.5,1.1,1.4,166.7,2.21,6,'xn','MB bơm ~3.300 tỷ đợt tăng vốn 10.000 tỷ (5/2026); án đình chỉ margin phối hợp NH 2,5 tháng'],
+['HCM',28.55,33.5,35.4,1.0,-49.6,716.0,2.72,0,'xn','NN mua +35 tỷ tuần bùng nổ; tự doanh bán −50 tỷ cả năm'],
+['ORS',14.65,25.3,6.2,0.9,0.2,143.4,2.46,0,'xn','NN mua đều cả năm lẫn tuần bùng nổ'],
+['VDS',15.9,27.2,5.3,2.9,0.0,36.3,3.62,2,'xn','Nutifood/KIDO nắm ~25% giá vốn 16–18k; nội bộ đăng ký bán 100k CP ngay trước sóng'],
+['AGR',16.0,1.3,1.3,1.4,0.0,18.0,3.49,0,'xn','NN mua nhẹ, vượt đỉnh 60 phiên'],
+['TCX',45.0,738.0,-130.6,-32.1,-5.9,81.2,1.07,5,'rut','NN gom 738 tỷ từ đầu năm rồi xả 131 tỷ (32% GTGD) đúng tuần bùng nổ'],
+['SSI',27.35,-913.5,-35.2,-1.6,-46.7,445.2,1.19,4,'rut','NN và tự doanh cùng bán; nội bộ chỉ mua ESOP'],
+['VIX',17.05,-679.8,-30.3,-1.1,-197.1,527.7,0.83,1,'rut','128 nghìn cổ đông, không có cổ đông lớn; tự doanh xả −197 tỷ'],
+['VCI',25.1,313.2,-14.8,-1.8,-79.9,163.0,1.05,12,'rut','PYN giảm VCI để mua SHS; tự doanh bán −80 tỷ'],
+['FTS',28.0,-15.5,-8.8,-2.9,-0.5,59.7,1.69,0,'rut',''],
+['CTS',28.2,6.0,-6.9,-1.8,1.6,77.8,1.92,4,'rut','Động lượng giá 1 tháng mạnh nhất ngành (+31%) nhưng NN bán tuần qua'],
+['BVS',31.9,4.4,8.4,4.7,0.0,35.9,5.60,0,'tt','GTGD gấp 5,6 lần nền; Bảo Việt khóa 60%; nội bộ và tự doanh im lặng tuyệt đối'],
+['SBS',5.3,2.9,1.1,2.8,0.0,8.0,4.66,0,'tt','Đầu cơ trên kỳ vọng đổi chủ — chào bán 50tr CP cho 4 cá nhân đã thất bại 5/2026'],
+['AAS',9.4,-0.3,-0.3,-0.3,0.0,17.7,2.43,0,'tt',''],
+['BSI',36.5,-30.8,-0.5,-0.2,2.7,38.1,2.30,0,'tt',''],
+['APS',7.5,0.3,0.2,0.7,0.0,5.1,1.89,0,'tt',''],
+['DSC',13.4,0.4,0.0,0.3,0.0,0.4,1.95,0,'tt',''],
+['IPA',16.0,0.0,0.0,-0.1,0.0,1.1,1.97,0,'tt',''],
+['EVS',5.8,0.1,0.0,0.3,0.0,1.5,1.49,0,'tt',''],
+['TVS',14.75,21.6,-1.6,-6.3,0.3,5.1,1.54,7,'tt',''],
+['PVI',73.5,-73.8,0.0,-0.1,0.3,2.7,1.16,1,'tt','Người liên quan Chủ tịch (Funderburk) đã giao dịch 5/2026'],
+['TVB',7.6,-0.8,0.0,0.5,0.0,0.2,1.00,3,'tt','Tổ chức liên quan nội bộ đăng ký bán'],
+['APG',5.14,-4.1,0.0,0.1,0.0,2.8,0.86,0,'tt',''],
+['TCI',10.45,-0.3,0.0,-0.6,0.0,1.0,0.06,3,'tt','Thanh khoản teo lại; tổ chức liên quan nội bộ bán']];
+const NH=[
+['HDB',26.95,-2618.4,127.2,6.3,219.7,405.1,1.33,0,'xn','Cú mua ngoại lớn nhất tuần (+127 tỷ); tự doanh +220 tỷ cả năm; leader giá nhóm bank'],
+['VCB',62.0,-4901.4,121.5,9.5,-192.1,256.4,0.98,0,'xn','NN quay lại mua +122 tỷ (9,5% GTGD) sau năm bán ròng gần 5.000 tỷ'],
+['MBB',25.6,2075.4,-152.7,-7.9,-252.3,386.5,1.39,2,'xn','Mã bank duy nhất NN mua lớn 2026 (+2.075 tỷ); tuần qua chốt lời −153 tỷ'],
+['LPB',51.0,453.3,-26.7,-2.8,785.4,190.2,0.30,0,'xn','NN +453 tỷ; tự doanh +785 tỷ (sang tay khối)'],
+['NAB',13.1,-97.6,14.4,4.8,76.8,60.5,1.63,5,'xn','NN mua tuần qua; nội bộ giao dịch đều'],
+['SSB',16.5,31.0,22.1,3.3,-2.7,132.7,1.41,10,'xn','NN mua +22 tỷ tuần qua; 10 tin nội bộ từ tháng 5 — người liên quan giao dịch dày đặc'],
+['ACB',22.65,-4961.5,-87.4,-6.7,-519.9,261.9,0.38,2,'so','Nhóm Âu Lạc gom lên 9,59% — áp sát 10%; NN xả nặng nhất ngành, giá đứng im: tích lũy quyền lực'],
+['VIB',16.45,-530.4,-61.4,-5.3,-723.4,234.0,1.35,3,'so','Unicap +31tr CP (~500 tỷ) 21/5, nhóm 8,4%; trước đó nhóm nội chi >1.000 tỷ thành cổ đông lớn'],
+['EIB',20.65,-280.9,-46.6,-5.8,962.4,160.0,0.83,0,'so','Tự doanh +962 tỷ 2026, +307 tỷ chỉ trong 5 phiên — sang tay đang diễn ra'],
+['MSB',16.0,-3404.3,-18.6,-1.8,327.3,201.5,0.70,9,'so','VEIL xuất hiện 1,06%; ROX Living (liên quan Chủ tịch) giao dịch; cổ đông nhà nước thoái'],
+['TCB',33.6,-2247.5,-265.4,-10.0,-119.0,530.5,1.05,0,'rut','NN bán mạnh nhất tuần: −265 tỷ = 10% GTGD dù giá vẫn tăng'],
+['STB',72.0,-4276.9,-85.1,-5.4,-1384.4,313.8,0.69,1,'rut','NN −4.277 tỷ + tự doanh −1.384 tỷ — tổ chức rút đồng loạt'],
+['CTG',34.15,-2915.8,-90.4,-7.4,16.4,245.1,1.05,0,'rut',''],
+['SHB',13.65,-805.7,-49.4,-1.4,-455.8,708.1,0.98,0,'rut',''],
+['VPB',27.8,-1300.4,-18.6,-0.6,-130.4,598.2,1.61,0,'rut',''],
+['BID',42.25,-1558.1,-50.4,-6.4,178.4,156.4,0.93,0,'rut',''],
+['TPB',16.55,-690.1,-1.1,-0.1,124.4,285.9,1.18,0,'tt',''],
+['OCB',11.5,2.0,-22.5,-5.4,53.6,83.5,1.17,4,'tt','Người liên quan nội bộ giao dịch tháng 6'],
+['ABB',18.7,52.7,1.2,1.4,644.7,16.4,0.28,2,'tt','Tự doanh +645 tỷ (sang tay); người liên quan Chủ tịch bán 300k CP'],
+['NVB',14.7,0.9,-0.1,-0.2,143.5,10.8,1.32,3,'tt','Đang tăng vốn — nội bộ giao dịch quyền mua'],
+['VAB',11.55,22.3,-3.0,-3.3,-8.6,18.1,1.65,0,'tt',''],
+['BVB',13.5,2.6,0.3,0.2,-0.3,37.3,1.26,0,'tt',''],
+['EVF',13.2,-20.2,-5.9,-3.8,11.2,30.9,0.48,0,'tt',''],
+['BAB',11.7,1.2,0.0,-0.3,0.0,0.3,0.59,0,'tt','']];
+const BDS=[
+['VIC',220.3,-9045.5,206.7,4.4,4.8,943.4,0.54,0,'xn','NN mua +207 tỷ tuần qua — cú mua lớn nhất cả 3 ngành — trong khi VHM bị xả: cơ cấu trong nhóm Vin'],
+['VHM',151.6,-15634.2,-618.5,-18.9,634.3,653.6,0.81,1,'rut','NN xả nặng nhất thị trường: −15.634 tỷ/năm, −619 tỷ tuần qua; tự doanh hấp thụ +634 tỷ'],
+['VRE',28.15,-1204.9,-44.0,-8.6,25.0,103.0,0.64,0,'rut',''],
+['NVL',12.3,-1224.2,-33.5,-7.0,32.9,95.8,0.42,1,'rut','Cổ đông lớn Novaland bán hàng triệu CP khi giá tăng “bốc đầu” (21/5)'],
+['DXG',12.15,-1206.3,-34.9,-6.1,-96.3,114.0,1.05,1,'rut','Nhóm NĐT nước ngoài liên quan cổ đông lớn giảm sở hữu (17/6); tự doanh bán −96 tỷ'],
+['KDH',21.3,-979.3,-16.4,-5.0,125.4,65.2,0.68,4,'rut','Nhóm NN thay đổi sở hữu vượt ngưỡng 1% (16/6)'],
+['BCM',51.1,-927.0,-14.7,-15.4,-0.1,19.0,1.14,0,'rut',''],
+['KBC',29.25,-747.8,-48.0,-3.6,249.7,265.5,3.30,8,'so','VPBank Securities thoái sạch — rời ghế cổ đông lớn (3/7); khối ~837 tỷ sang tay qua tự doanh trong 5 phiên; GTGD gấp 3,3 lần nền'],
+['IDC',40.7,727.5,-23.5,-10.0,26.9,47.3,0.97,0,'rut','NN gom +727 tỷ từ đầu năm rồi quay ra bán −23,5 tỷ (−10% GTGD) tuần qua'],
+['NLG',25.8,-495.9,-5.2,-2.9,-58.9,36.0,0.63,2,'xn','Người nhà Chủ tịch Nam Long đăng ký mua 1 triệu CP (3/7) — nội bộ bắt đáy'],
+['HDG',20.0,-324.4,-7.5,-5.3,60.0,28.1,0.99,2,'rut','PYN Elite báo cáo thay đổi sở hữu (10/6)'],
+['PDR',14.55,-328.4,-0.1,0.0,3.0,58.7,0.51,0,'tt',''],
+['TCH',14.3,-299.2,-23.3,-11.7,13.2,39.7,0.63,3,'rut','Dragon Capital bán 3,23 triệu CP — không còn là cổ đông lớn (21/6)'],
+['DIG',12.25,-183.0,-1.9,-1.0,-3.2,37.9,0.71,7,'tt','7 tin nội bộ từ tháng 5; Chủ tịch Nguyễn Hùng Cường bị call margin (9/6)'],
+['DXS',7.13,-169.8,-0.5,-1.1,0.1,8.2,0.79,0,'tt',''],
+['SIP',49.95,-109.8,-0.2,-0.5,1.1,6.1,0.31,4,'tt',''],
+['VPI',61.5,-88.9,-47.5,-16.9,-0.8,56.1,0.51,2,'rut',''],
+['IJC',8.91,-81.6,-1.0,-2.2,14.9,9.0,0.87,2,'tt',''],
+['CEO',14.4,-64.6,-11.1,-4.0,3.0,56.1,0.66,0,'tt',''],
+['HDC',14.95,-61.5,-9.6,-18.2,3.2,10.5,0.48,6,'rut','NN bán 18% GTGD 5 phiên; nội bộ Đoàn Hữu Hà Vinh giao dịch'],
+['KSF',79.2,5.1,-1.8,-0.7,0.2,49.0,1.15,6,'tt','Nội bộ & người liên quan có 2 đăng ký bán từ tháng 5'],
+['SZC',22.2,-12.8,-0.5,-1.6,0.5,6.2,0.61,0,'tt',''],
+['HHS',11.15,-11.8,-1.4,-3.0,0.2,9.2,0.73,2,'tt','Tin 29/6: Phó Chủ tịch một công ty địa ốc liên tục gom cổ phiếu thành cổ đông lớn (bài gắn HHS & NTL)'],
+['NTL',15.2,-8.3,-0.6,-5.0,0.2,2.3,0.88,2,'xn','Phó Chủ tịch liên tục gom thêm, trở thành cổ đông lớn (29/6)'],
+['NDN',10.9,-0.7,0.0,0.2,0.0,1.8,1.08,4,'xn','Ủy viên HĐQT kiêm Phó TGĐ đã mua 529.000 CP (29/6)'],
+['SCR',5.0,-6.0,-1.2,-2.5,0.0,9.7,1.60,1,'tt',''],
+['CRE',6.96,-6.5,0.0,0.5,0.0,0.9,0.56,2,'tt',''],
+['AGG',11.7,2.9,-0.2,-1.5,0.0,3.1,0.22,0,'tt',''],
+['LHG',28.7,-2.0,-0.9,-9.6,0.0,1.9,1.58,0,'tt',''],
+['TIP',18.15,0.1,0.0,0.0,0.0,1.2,3.40,0,'tt','GTGD gấp 3,4 lần nền nhưng không dấu chân tổ chức'],
+['NRC',7.0,0.2,-0.1,-0.1,0.0,11.2,1.73,0,'tt',''],
+['NTC',133.3,-0.1,0.0,0.0,0.0,1.7,1.96,1,'tt',''],
+['SGR',13.9,-1.0,-0.1,-0.5,0.0,2.6,2.10,0,'tt',''],
+['AAV',7.1,-0.3,0.0,0.0,0.0,6.2,1.54,1,'tt',''],
+['HQC',2.5,1.8,-0.4,-2.2,0.0,3.8,0.24,0,'tt',''],
+['ASM',6.01,0.1,0.5,4.4,0.0,2.2,1.27,0,'tt',''],
+['KHG',4.92,-0.7,0.1,0.2,0.0,13.2,0.72,2,'tt',''],
+['FIR',5.09,0.0,0.0,0.0,0.0,1.6,0.95,1,'tt','Vũ Hoàng Việt không còn là cổ đông lớn (20/5)'],
+['SJS',48.0,-1.5,-0.9,-2.9,-0.3,5.9,0.31,1,'tt','CĐ lớn An Phát thay đổi sở hữu (18/5)'],
+['NBB',17.55,-0.6,0.0,0.0,0.0,0.6,0.12,1,'tt',''],
+['QCG',11.8,-0.8,-0.2,-1.9,-0.7,2.3,0.99,0,'tt',''],
+['TIG',6.3,-1.9,0.1,1.1,6.5,1.8,0.32,0,'tt',''],
+['TDC',9.2,-1.0,-0.1,-3.3,0.0,0.6,0.78,0,'tt',''],
+['TDH',3.65,0.5,0.0,-3.0,-0.1,0.1,0.39,0,'tt',''],
+['API',6.4,0.0,0.1,1.3,0.0,1.3,0.66,0,'tt',''],
+['IDJ',4.4,-0.3,0.2,1.4,0.0,3.4,0.57,0,'tt',''],
+['EVG',5.25,-0.9,0.0,0.6,0.0,1.2,0.49,0,'tt',''],
+['HAR',3.2,0.5,0.0,1.8,0.0,0.1,0.84,0,'tt',''],
+['FIT',3.81,0.0,0.0,0.0,0.0,1.0,0.48,0,'tt',''],
+['DLG',2.56,-0.7,-0.2,-2.5,0.0,1.9,0.50,0,'tt',''],
+['DRH',1.92,-1.2,0.0,0.2,0.0,0.3,0.63,0,'tt',''],
+['CKG',6.71,-0.1,0.0,0.0,0.0,0.2,0.69,3,'tt',''],
+['ITC',11.5,0.0,0.0,0.0,0.0,0.6,0.36,0,'tt',''],
+['LDG',3.14,1.4,-0.2,-2.1,0.0,2.2,0.39,0,'tt',''],
+['LGL',5.28,0.0,0.0,0.0,0.0,0.3,0.76,0,'tt',''],
+['OGC',2.85,-0.2,0.0,-0.1,0.0,0.6,0.43,0,'tt',''],
+['PXL',12.2,0.0,0.0,0.0,0.0,0.2,0.60,0,'tt',''],
+['VPH',3.51,0.0,0.0,-0.8,0.0,0.1,1.30,0,'tt','']];
+
+const fmt=(v,d=1)=>v.toLocaleString('vi-VN',{minimumFractionDigits:d,maximumFractionDigits:d});
+const sgn=v=>(v>0?'+':'')+fmt(v);
+function cls(v){return v>0.05?'pos':(v<-0.05?'neg':'')}
+
+/* ---------- tables ---------- */
+function buildTable(el,data){
+  const cols=[['Mã',0],['Giá',1],['xGTGD',7],['NN 2026 (tỷ)',2],['NN 5p (tỷ)',3],['NN %GTGD 5p',4],['TD 2026 (tỷ)',5],['Tin NB',8],['Nhóm',9]];
+  let sort={i:2,dir:1};
+  const maxAbs=Math.max(...data.map(r=>Math.abs(r[2])));
+  function render(){
+    const rows=[...data].sort((a,b)=>{
+      const i=sort.i;
+      if(i===0)return sort.dir*String(a[0]).localeCompare(b[0]);
+      if(i===9)return sort.dir*String(a[9]).localeCompare(b[9]);
+      return sort.dir*((b[i]||0)-(a[i]||0));
+    });
+    let h='<thead><tr>'+cols.map((c,k)=>`<th data-k="${k}">${c[0]}${sort.i===c[1]?' <span class="ar">'+(sort.dir>0?'▾':'▴')+'</span>':''}</th>`).join('')+'</tr></thead><tbody>';
+    for(const r of rows){
+      const w=Math.max(2,Math.round(Math.sqrt(Math.abs(r[2])/maxAbs)*54));
+      const bar=`<span class="bar" style="width:${w}px;background:${r[2]>=0?'var(--buy)':'var(--sell)'};opacity:.75"></span>`;
+      h+=`<tr title="${(r[10]||'').replace(/"/g,'&quot;')}">
+        <td>${r[0]}</td><td>${fmt(r[1],2)}</td><td>${fmt(r[7],2)}</td>
+        <td class="${cls(r[2])}">${bar} ${sgn(r[2])}</td>
+        <td class="${cls(r[3])}">${sgn(r[3])}</td>
+        <td class="${cls(r[4])}">${sgn(r[4])}%</td>
+        <td class="${cls(r[5])}">${sgn(r[5])}</td>
+        <td>${r[8]||'·'}</td>
+        <td><span class="chip ${GRP[r[9]][1]}">${GRP[r[9]][0]}</span></td></tr>`;
+    }
+    el.innerHTML=h+'</tbody>';
+    el.querySelectorAll('th').forEach(th=>th.onclick=()=>{
+      const i=cols[+th.dataset.k][1];
+      sort=(sort.i===i)?{i,dir:-sort.dir}:{i,dir:1};
+      render();
+    });
+  }
+  render();
+}
+buildTable(document.getElementById('tbCK'),CK);
+buildTable(document.getElementById('tbNH'),NH);
+buildTable(document.getElementById('tbBDS'),BDS);
+
+/* ---------- scatter ---------- */
+const cv=document.getElementById('plot'),ctx=cv.getContext('2d'),tip=document.getElementById('tip');
+const show={CK:true,NH:true,BDS:true};
+const SECNAME={CK:'Chứng khoán',NH:'Ngân hàng',BDS:'Bất động sản'};
+const SECDASH={CK:[],NH:[3,2],BDS:[1,3]};
+const SECFILL={CK:'88',NH:'55',BDS:'3a'};
+const XMIN=-21,XMAX=11,YMIN=0,YMAX=6.2;
+let pts=[];
+function draw(){
+  const dpr=window.devicePixelRatio||1;
+  const W=cv.clientWidth||1120,Hh=Math.round(W*0.5);
+  cv.width=W*dpr;cv.height=Hh*dpr;cv.style.height=Hh+'px';
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  const m={l:52,r:16,t:26,b:40},pw=W-m.l-m.r,ph=Hh-m.t-m.b;
+  const X=v=>m.l+(Math.max(XMIN,Math.min(XMAX,v))-XMIN)/(XMAX-XMIN)*pw;
+  const Y=v=>m.t+ph-(Math.max(YMIN,Math.min(YMAX,v))-YMIN)/(YMAX-YMIN)*ph;
+  ctx.clearRect(0,0,W,Hh);
+  ctx.font='11px "Cascadia Mono",Consolas,monospace';
+  // grid
+  for(let gx=-20;gx<=10;gx+=5){
+    ctx.strokeStyle='#1c2637';ctx.beginPath();ctx.moveTo(X(gx),m.t);ctx.lineTo(X(gx),m.t+ph);ctx.stroke();
+    ctx.fillStyle='#5a6478';ctx.textAlign='center';ctx.fillText((gx>0?'+':'')+gx+'%',X(gx),Hh-20);
+  }
+  for(let gy=1;gy<=6;gy++){
+    ctx.strokeStyle='#1c2637';ctx.beginPath();ctx.moveTo(m.l,Y(gy));ctx.lineTo(m.l+pw,Y(gy));ctx.stroke();
+    ctx.fillStyle='#5a6478';ctx.textAlign='right';ctx.fillText('x'+gy,m.l-8,Y(gy)+4);
+  }
+  // reference lines
+  ctx.strokeStyle='#33405c';ctx.setLineDash([4,4]);
+  ctx.beginPath();ctx.moveTo(X(0),m.t);ctx.lineTo(X(0),m.t+ph);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(m.l,Y(1));ctx.lineTo(m.l+pw,Y(1));ctx.stroke();
+  ctx.setLineDash([]);
+  // quadrant captions
+  ctx.fillStyle='rgba(138,148,168,.5)';ctx.font='11px "Segoe UI",sans-serif';
+  ctx.textAlign='left';ctx.fillText('SÓNG "CHÂN KHÔNG" — volume nổ, ngoại đứng ngoài/bán',m.l+6,m.t+12);
+  ctx.textAlign='right';ctx.fillText('SÓNG CÓ NGOẠI XÁC NHẬN',m.l+pw-6,m.t+12);
+  ctx.fillText('ngoại mua khi thị trường yên ắng',m.l+pw-6,m.t+ph-8);
+  ctx.textAlign='left';ctx.fillText('ngoại rút, không sóng',m.l+6,m.t+ph-8);
+  // axis titles
+  ctx.fillStyle='#8a94a8';ctx.textAlign='center';
+  ctx.fillText('Khối ngoại ròng 5 phiên (% GTGD)',m.l+pw/2,Hh-5);
+  ctx.save();ctx.translate(13,m.t+ph/2);ctx.rotate(-Math.PI/2);ctx.fillText('GTGD 5p / nền (lần)',0,0);ctx.restore();
+  // points
+  pts=[];
+  const all=[...CK.map(r=>({r,sec:'CK'})),...NH.map(r=>({r,sec:'NH'})),...BDS.map(r=>({r,sec:'BDS'}))];
+  const labelSet=new Set(['SHS','VND','MBS','TCX','SSI','VIX','BVS','SBS','VDS','HCM','HDB','VCB','MBB','TCB','ACB','VIB','EIB','LPB','AGR','NAB','VHM','VIC','KBC','NLG','IDC','DXG','NVL','TCH','KDH','BCM']);
+  for(const {r,sec} of all){
+    if(!show[sec])continue;
+    const x=X(r[4]),y=Y(r[7]),rad=Math.max(4,Math.min(24,Math.sqrt(r[6])*1.15));
+    ctx.beginPath();ctx.arc(x,y,rad,0,7);
+    ctx.fillStyle=COL[r[9]]+SECFILL[sec];ctx.fill();
+    ctx.lineWidth=sec==='CK'?1:2;
+    ctx.setLineDash(SECDASH[sec]);
+    ctx.strokeStyle=COL[r[9]];ctx.stroke();ctx.setLineDash([]);
+    if(labelSet.has(r[0])){
+      ctx.fillStyle='#c6cdd9';ctx.font='700 10.5px "Cascadia Mono",Consolas,monospace';ctx.textAlign='center';
+      ctx.fillText(r[0]+(r[4]<XMIN?' ◄'+Math.round(r[4])+'%':''),x,y-rad-4);
+    }
+    pts.push({x,y,rad,r,sec});
+  }
+}
+draw();
+addEventListener('resize',draw);
+document.getElementById('tgCK').onclick=e=>{show.CK=!show.CK;e.target.classList.toggle('on');draw()};
+document.getElementById('tgNH').onclick=e=>{show.NH=!show.NH;e.target.classList.toggle('on');draw()};
+document.getElementById('tgBDS').onclick=e=>{show.BDS=!show.BDS;e.target.classList.toggle('on');draw()};
+cv.addEventListener('mousemove',e=>{
+  const b=cv.getBoundingClientRect(),mx=e.clientX-b.left,my=e.clientY-b.top;
+  let best=null,bd=1e9;
+  for(const p of pts){const d=Math.hypot(mx-p.x,my-p.y);if(d<p.rad+5&&d<bd){bd=d;best=p}}
+  if(best){
+    const r=best.r;
+    tip.innerHTML=`<div class="t">${r[0]} <span style="color:#5a6478">· ${SECNAME[best.sec]} · ${GRP[r[9]][0]}</span></div>
+      <div style="margin-top:4px">Giá ${fmt(r[1],2)} · GTGD ${fmt(r[6],0)} tỷ/phiên (x${fmt(r[7],1)} nền)</div>
+      <div>NN 2026: <b class="${cls(r[2])}">${sgn(r[2])} tỷ</b> · 5 phiên: <b class="${cls(r[3])}">${sgn(r[3])} tỷ (${sgn(r[4])}%)</b></div>
+      <div>Tự doanh 2026: <b class="${cls(r[5])}">${sgn(r[5])} tỷ</b> · Tin nội bộ: ${r[8]}</div>
+      ${r[10]?`<div class="n">${r[10]}</div>`:''}`;
+    tip.style.display='block';
+    tip.style.left=Math.min(innerWidth-300,e.clientX+14)+'px';
+    tip.style.top=(e.clientY+14)+'px';
+  }else tip.style.display='none';
+});
+cv.addEventListener('mouseleave',()=>tip.style.display='none');
+</script>
+
+</body>
+</html>
